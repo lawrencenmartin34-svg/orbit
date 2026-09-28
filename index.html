@@ -31,7 +31,7 @@ main{max-width:720px;margin:0 auto;padding:0 16px calc(88px + env(safe-area-inse
 .muted{color:var(--dim)}.faint{color:var(--faint)}.accent{color:var(--accent)}
 
 /* top bar */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;display:flex;align-items:center;gap:6px;height:52px;margin:0 -16px;padding:0 10px 0 16px;background:rgba(28,28,31,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;display:flex;align-items:center;gap:6px;height:52px;margin:0 -16px;padding:0 10px 0 16px;background:var(--bg);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
 .top .iconbtn:first-child{margin-left:-8px}
 .top h1{flex:1;margin:0;font-size:17px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:9px;color:var(--dim)}
@@ -187,6 +187,36 @@ a.ext{color:var(--accent)}
 .empty h3{margin:0 0 6px;font-size:18px}
 .empty p{margin:0 auto 18px;max-width:300px;color:var(--dim)}
 
+/* calendar list view */
+.vtoggle{display:flex;margin-top:10px;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.vtoggle button{flex:1;padding:6px;border-radius:7px;font-size:14px;color:var(--dim)}
+.vtoggle button.on{background:var(--raised);color:var(--text)}
+.lsticky{position:sticky;top:calc(52px + env(safe-area-inset-top,0px));z-index:9;margin:0 -16px;padding:0 16px 10px;background:var(--bg);border-bottom:1px solid var(--line)}
+.lsticky .search{margin:10px 0 8px}
+.mline{display:flex;align-items:baseline;gap:14px;width:100%;margin-top:8px;padding:9px 12px;border-radius:10px;background:var(--accent-soft);font-size:13px;color:var(--dim);text-align:left}
+.mline b{color:var(--text);font-size:16px;font-weight:650}
+.mline .more{margin-left:auto;color:var(--accent);font-weight:550}
+.mhdr{padding:18px 2px 4px;font-size:13px;font-weight:600;color:var(--faint)}
+.todaydiv{display:flex;align-items:center;gap:10px;margin-top:18px;font-size:13px;font-weight:600;color:var(--accent)}
+.todaydiv::before,.todaydiv::after{content:"";flex:1;height:1px;background:var(--accent);opacity:.45}
+#sheet{position:fixed;inset:0;z-index:40;display:none}
+#sheet.on{display:block}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.55)}
+.sheet-panel{position:absolute;left:0;right:0;bottom:0;max-width:720px;max-height:82vh;margin:0 auto;overflow-y:auto;padding:8px 18px calc(28px + env(safe-area-inset-bottom,0px));background:var(--panel);border-radius:18px 18px 0 0;border-top:1px solid var(--line)}
+.grab{width:38px;height:4px;margin:4px auto 12px;border-radius:2px;background:var(--line)}
+.sheet-head{display:flex;align-items:center;gap:8px}
+.sheet-head h3{flex:1;margin:0;font-size:20px;font-weight:700}
+.sgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:14px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.sgrid div{padding:10px 12px;background:var(--raised)}
+.sgrid b{display:block;font-size:22px;font-weight:700;letter-spacing:-.01em}
+.sgrid span{font-size:12px;color:var(--faint)}
+.brow{display:grid;grid-template-columns:minmax(0,40%) 1fr auto;align-items:center;gap:10px;width:100%;padding:7px 0;font-size:14px;text-align:left}
+.bl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bb{height:8px;border-radius:4px;background:var(--raised);overflow:hidden}
+.bb i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.bn{min-width:24px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+html.lock{overflow:hidden}
+
 /* lightbox + toast */
 #lb{position:fixed;inset:0;z-index:50;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.95);padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
 #lb.on{display:flex}
@@ -205,6 +235,7 @@ a.ext{color:var(--accent)}
 <nav class="tabs" id="tabs"></nav>
 <main id="view"></main>
 <div id="lb" data-act="lb-close"><img alt=""><button class="lbb lbx" data-act="lb-close" aria-label="Close">×</button><button class="lbb lbp" data-act="lb-prev" aria-label="Previous">‹</button><button class="lbb lbn" data-act="lb-next" aria-label="Next">›</button><div class="lbc"></div></div>
+<div id="sheet"><div class="sheet-bg" data-act="sheet-close"></div><div class="sheet-panel" id="sheetp"></div></div>
 <div id="toast" role="status"></div>
 <script>
 'use strict';
@@ -262,7 +293,7 @@ const DB = {
   clear(s){ return this.tx(s, 'readwrite', st => { st.clear(); }); },
 };
 
-const S = { people: [], meetings: [], ui: {q:'', filter:'all', sort:'recent', month:null, day:null}, draft: null, draftKey: null, lb: null, accent: 'violet' };
+const S = { people: [], meetings: [], ui: {q:'', filter:'all', sort:'recent', month:null, day:null, calView:'month', mq:'', myear:'all', mcat:'all'}, draft: null, draftKey: null, lb: null, accent: 'violet' };
 const ACCENTS = { violet:'#9b8cf0', steel:'#7fa6c8', sage:'#8db59a', rose:'#cf8ea8' };
 function applyAccent(){
   let k = 'violet'; try { k = localStorage.getItem('orbit-accent') || 'violet'; } catch(e) {}
@@ -446,7 +477,7 @@ function vMeetingForm(id, q){
   return bar(id ? 'Edit meeting' : 'New meeting', '', backBtn)
   + `<form class="form" data-form="meeting" data-id="${id || ''}" autocomplete="off">
     <label class="f"><span>With</span><select name="personId" required><option value="">Choose someone</option>${opts}</select></label>
-    ${field('What', 'title', m.title, 'placeholder="Coffee, call, dinner"')}
+    ${field('What', 'title', m.title, 'placeholder="Coffee, call, dinner" list="mtitles"')}<datalist id="mtitles">${[...new Set(S.meetings.map(x => (x.title || '').trim()).filter(Boolean))].sort().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
     <div class="two"><label class="f"><span>When</span><input class="t" type="datetime-local" name="when" value="${esc(m.when)}" required></label>${field('Where', 'location', m.location)}</div>
     <div class="f"><span>How it went</span>${starInput('rating', m.rating)}</div>
     ${photoField()}
@@ -458,6 +489,7 @@ function vMeetingForm(id, q){
 }
 
 function vCal(){
+  if (S.ui.calView === 'list') return vCalList();
   const t = todayKey();
   if (!S.ui.month) { const d = new Date(); S.ui.month = new Date(d.getFullYear(), d.getMonth(), 1); }
   if (!S.ui.day) S.ui.day = t;
@@ -473,13 +505,94 @@ function vCal(){
   const dm = (byDay[S.ui.day] || []).sort((a, b) => a.when.localeCompare(b.when)), df = fu[S.ui.day] || [];
   const n = nowISO(), up = S.meetings.filter(m => m.when > n).sort((a, b) => a.when.localeCompare(b.when)).slice(0, 5);
   return bar('Calendar', `<a class="iconbtn" href="#/meeting/new?date=${S.ui.day}" aria-label="Add meeting">${I.plus}</a>`)
-  + `<div class="cal-head"><h2>${S.ui.month.toLocaleDateString(undefined, {month:'long', year:'numeric'})}</h2><button class="btn sm" data-act="cal-today">Today</button><button class="iconbtn" data-act="cal-prev" aria-label="Previous month">${I.back}</button><button class="iconbtn flip" data-act="cal-next" aria-label="Next month">${I.back}</button></div>
+  + calToggle() + `<div class="cal-head"><h2>${S.ui.month.toLocaleDateString(undefined, {month:'long', year:'numeric'})}</h2><button class="btn sm" data-act="cal-today">Today</button><button class="iconbtn" data-act="cal-prev" aria-label="Previous month">${I.back}</button><button class="iconbtn flip" data-act="cal-next" aria-label="Next month">${I.back}</button></div>
   <div class="grid">${g}</div>`
   + sec(fmtLong(S.ui.day), (dm.length || df.length)
       ? dm.map(m => mItem(m, true)).join('') + df.map(p => `<a class="row" href="#/person/${p.id}">${avatar(p, 36)}<div class="main"><div class="name">Follow up with ${esc(p.name)}</div><div class="sub">${esc(p.followNote || '')}</div></div></a>`).join('')
       : `<p class="muted" style="margin:0">Nothing on this day. <a class="accent" href="#/meeting/new?date=${S.ui.day}">Add a meeting</a></p>`)
   + (up.length ? sec('Coming up', up.map(m => mItem(m, true)).join('')) : '');
 }
+
+const calToggle = () => `<div class="vtoggle">${[['month', 'Month'], ['list', 'List']].map(([v, l]) => `<button class="${S.ui.calView === v ? 'on' : ''}" data-act="calview" data-v="${v}">${l}</button>`).join('')}</div>`;
+const typeOf = m => { const p = P(m.personId); return (p && p.type) || 'professional'; };
+function filteredMeetings(){
+  const q = S.ui.mq.trim().toLowerCase(), c = S.ui.mcat;
+  return S.meetings.filter(m => {
+    if (S.ui.myear !== 'all' && m.when.slice(0, 4) !== S.ui.myear) return false;
+    const t = typeOf(m);
+    if (c !== 'all' && t !== c && !(t === 'both' && c !== 'both')) return false;
+    if (q) { const p = P(m.personId); if (![m.title, p && p.name, m.location].join(' ').toLowerCase().includes(q)) return false; }
+    return true;
+  }).sort((a, b) => a.when.localeCompare(b.when));
+}
+function mStats(list){
+  const t0 = todayKey(), rated = list.filter(m => m.rating);
+  return { n: list.length, past: list.filter(m => m.when.slice(0, 10) < t0).length, people: new Set(list.map(m => m.personId)).size,
+    avg: rated.length ? rated.reduce((s, m) => s + m.rating, 0) / rated.length : 0, rated: rated.length };
+}
+function metricsHtml(list){
+  const s = mStats(list);
+  return `<button class="mline" data-act="stats"><span><b>${s.n}</b> meeting${s.n === 1 ? '' : 's'}</span><span><b>${s.people}</b> ${s.people === 1 ? 'person' : 'people'}</span>${s.rated ? `<span><b>${s.avg.toFixed(1)}</b> avg</span>` : ''}<span class="more">Stats</span></button>`;
+}
+const todayDiv = () => `<div class="todaydiv" id="todaydiv">Today, ${fmtDay(todayKey())}</div>`;
+function mListHtml(list){
+  if (!S.meetings.length) return empty('No meetings yet', 'Log one from someone’s profile or with the + button.', '#/meeting/new', 'Add a meeting');
+  if (!list.length) return `<p class="muted">No meetings match.</p>`;
+  const t0 = todayKey(), withToday = S.ui.myear === 'all' || +S.ui.myear >= new Date().getFullYear();
+  let html = '', month = '', placed = !withToday;
+  for (const m of list) {
+    if (!placed && m.when.slice(0, 10) >= t0) { html += todayDiv(); placed = true; month = ''; }
+    const mk = m.when.slice(0, 7);
+    if (mk !== month) { html += `<div class="mhdr">${parseLocal(mk + '-01').toLocaleDateString(undefined, {month:'long', year:'numeric'})}</div>`; month = mk; }
+    html += mItem(m, true);
+  }
+  if (!placed) html += todayDiv() + '<p class="muted" style="margin:8px 0 0">Nothing coming up.</p>';
+  return html;
+}
+function vCalList(){
+  const list = filteredMeetings(), years = [...new Set(S.meetings.map(m => m.when.slice(0, 4)))].sort().reverse();
+  return bar('Calendar', `<a class="iconbtn" href="#/meeting/new" aria-label="Add meeting">${I.plus}</a>`)
+  + `<div class="lsticky">${calToggle()}
+    <div class="search">${I.search}<input id="mq" type="search" placeholder="Search meeting titles or people" value="${esc(S.ui.mq)}" autocomplete="off"></div>
+    <div class="controls">${['all', 'personal', 'professional', 'both'].map(c => `<button class="chip ${S.ui.mcat === c ? 'on' : ''}" data-act="mcat" data-v="${c}">${c === 'all' ? 'All' : cap(c)}</button>`).join('')}
+    <select class="sort" id="myear" aria-label="Year"><option value="all">All years</option>${years.map(y => `<option ${S.ui.myear === y ? 'selected' : ''}>${y}</option>`).join('')}</select></div>
+    <div id="mmetrics">${metricsHtml(list)}</div></div>
+  <div id="mlist">${mListHtml(list)}</div>`;
+}
+function refreshMList(){ const l = filteredMeetings(); $('#mmetrics').innerHTML = metricsHtml(l); $('#mlist').innerHTML = mListHtml(l); scrollToToday(); }
+// Put "Today" right under the sticky controls so past meetings sit above (scroll up) and upcoming below.
+function scrollToToday(){
+  requestAnimationFrame(() => {
+    const st = $('.lsticky'), ml = $('#mlist'), d = $('#todaydiv');
+    if (!st || !ml) return;
+    ml.style.paddingBottom = '';
+    if (!d) { window.scrollTo(0, 0); return; }
+    const stTop = parseFloat(getComputedStyle(st).top) || 0, stH = st.getBoundingClientRect().height;
+    const below = ml.getBoundingClientRect().bottom - d.getBoundingClientRect().top;
+    ml.style.paddingBottom = Math.max(0, window.innerHeight - stTop - stH - below - 88) + 'px';
+    window.scrollTo(0, Math.max(0, d.getBoundingClientRect().top + window.scrollY - stTop - stH - 2));
+  });
+}
+function openStats(){
+  const list = filteredMeetings(), s = mStats(list);
+  const count = (keyFn, labelFn) => { const mp = new Map(); for (const m of list) { const k = keyFn(m); const e = mp.get(k) || { label: labelFn(m), n: 0 }; e.n++; mp.set(k, e); } return [...mp.values()].sort((a, b) => b.n - a.n); };
+  const titles = count(m => (m.title || '').trim().toLowerCase(), m => (m.title || '').trim() || 'Untitled');
+  const types = count(typeOf, m => cap(typeOf(m)));
+  const years = count(m => m.when.slice(0, 4), m => m.when.slice(0, 4)).sort((a, b) => b.label.localeCompare(a.label));
+  const people = count(m => m.personId, m => (P(m.personId) || {}).name || 'Unknown').slice(0, 5);
+  const bars = (rows, tap) => { const max = Math.max(1, ...rows.map(x => x.n)); return rows.map(x => `<button class="brow" ${tap && x.label !== 'Untitled' ? `data-act="mtitle" data-v="${esc(x.label)}"` : ''}><span class="bl">${esc(x.label)}</span><span class="bb"><i style="width:${Math.max(4, x.n / max * 100)}%"></i></span><span class="bn">${x.n}</span></button>`).join(''); };
+  const scope = [S.ui.myear === 'all' ? 'All years' : S.ui.myear, S.ui.mcat === 'all' ? 'all types' : cap(S.ui.mcat), S.ui.mq.trim() && `matching “${S.ui.mq.trim()}”`].filter(Boolean).join(', ');
+  $('#sheetp').innerHTML = `<div class="grab"></div><div class="sheet-head"><h3>Stats</h3><button class="iconbtn" data-act="sheet-close" aria-label="Close">×</button></div>
+    <div class="muted" style="font-size:13px">${esc(scope)}</div>
+    <div class="sgrid"><div><b>${s.n}</b><span>Meetings</span></div><div><b>${s.people}</b><span>People</span></div><div><b>${s.rated ? s.avg.toFixed(1) : '-'}</b><span>Avg rating</span></div>
+    <div><b>${s.past}</b><span>Past</span></div><div><b>${s.n - s.past}</b><span>Upcoming</span></div><div><b>${titles.length}</b><span>Kinds</span></div></div>
+    ${s.n ? sec('By title', bars(titles.slice(0, 12), true) + '<div class="hint">Tap a title to filter by it.</div>')
+      + (S.ui.mcat === 'all' ? sec('By type', bars(types)) : '')
+      + (S.ui.myear === 'all' && years.length > 1 ? sec('By year', bars(years)) : '')
+      + sec('Most met', bars(people)) : ''}`;
+  $('#sheet').classList.add('on'); document.documentElement.classList.add('lock');
+}
+function closeSheet(){ $('#sheet').classList.remove('on'); document.documentElement.classList.remove('lock'); }
 
 function vFollow(){
   const t = todayKey();
@@ -524,8 +637,9 @@ function render(){
   const due = S.people.filter(p => p.followUp && p.followUp <= todayKey()).length;
   $('#tabs').innerHTML = TABS.map(([k, l, ic]) => `<a href="#/${k}" class="${tab === k ? 'on' : ''}">${ic}${l}${k === 'follow' && due ? `<span class="badge">${due}</span>` : ''}</a>`).join('');
   if (a === 'settings') fillEstimate();
+  if (a === 'cal' && S.ui.calView === 'list') scrollToToday();
 }
-window.addEventListener('hashchange', () => { S.draftKey = null; closeLb(); render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { S.draftKey = null; closeLb(); closeSheet(); window.scrollTo(0, 0); render(); });
 
 /* ---------- actions ---------- */
 function compress(file, max = 1400, q = .82){
@@ -622,6 +736,11 @@ document.addEventListener('click', async e => {
         d.setDate(d.getDate() + 7); p.followUp = dkey(d); await DB.put('people', p); toast('Moved to ' + fmtDay(p.followUp)); render(); break; }
       case 'day': { S.ui.day = el.dataset.k; const d = parseLocal(S.ui.day); S.ui.month = new Date(d.getFullYear(), d.getMonth(), 1); render(); break; }
       case 'cal-prev': case 'cal-next': S.ui.month = new Date(S.ui.month.getFullYear(), S.ui.month.getMonth() + (act === 'cal-next' ? 1 : -1), 1); render(); break;
+      case 'calview': S.ui.calView = el.dataset.v; try { localStorage.setItem('orbit-calview', S.ui.calView); } catch (err) {} window.scrollTo(0, 0); render(); break;
+      case 'mcat': S.ui.mcat = el.dataset.v; render(); break;
+      case 'stats': openStats(); break;
+      case 'sheet-close': closeSheet(); break;
+      case 'mtitle': S.ui.mq = el.dataset.v; closeSheet(); render(); break;
       case 'cal-today': { const d = new Date(); S.ui.month = new Date(d.getFullYear(), d.getMonth(), 1); S.ui.day = todayKey(); render(); break; }
       case 'accent': try { localStorage.setItem('orbit-accent', el.dataset.v); } catch (err) {} applyAccent(); render(); break;
       case 'export': await exportData(); break;
@@ -648,15 +767,19 @@ document.addEventListener('change', async e => {
     const files = [...t.files];
     for (const f of files) { try { S.draft.photos.push(await compress(f)); } catch (err) { toast(err.message); } }
     refreshThumbs();
-  } else if (t.id === 'sort') { S.ui.sort = t.value; $('#plist').innerHTML = peopleList(); }
+  } else if (t.id === 'myear') { S.ui.myear = t.value; render(); }
+  else if (t.id === 'sort') { S.ui.sort = t.value; $('#plist').innerHTML = peopleList(); }
   else if (t.id === 'importin') { const f = t.files[0]; t.value = ''; importData(f); }
 });
-document.addEventListener('input', e => { if (e.target.id === 'q') { S.ui.q = e.target.value; $('#plist').innerHTML = peopleList(); } });
+document.addEventListener('input', e => {
+  if (e.target.id === 'q') { S.ui.q = e.target.value; $('#plist').innerHTML = peopleList(); }
+  else if (e.target.id === 'mq') { S.ui.mq = e.target.value; refreshMList(); }
+});
 document.addEventListener('submit', e => {
   const f = e.target; if (!f.dataset.form) return; e.preventDefault();
   (f.dataset.form === 'person' ? savePerson : saveMeeting)(f).catch(err => toast('Could not save: ' + err.message));
 });
-document.addEventListener('keydown', e => { if (!S.lb) return; if (e.key === 'Escape') closeLb(); if (e.key === 'ArrowLeft') stepLb(-1); if (e.key === 'ArrowRight') stepLb(1); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); if (!S.lb) return; if (e.key === 'Escape') closeLb(); if (e.key === 'ArrowLeft') stepLb(-1); if (e.key === 'ArrowRight') stepLb(1); });
 let tx0 = null;
 $('#lb').addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
 $('#lb').addEventListener('touchend', e => { if (tx0 === null) return; const dx = e.changedTouches[0].clientX - tx0; tx0 = null; if (Math.abs(dx) > 45) { e.preventDefault(); stepLb(dx < 0 ? 1 : -1); } });
@@ -675,6 +798,7 @@ async function migrate(){
 /* ---------- start ---------- */
 (async () => {
   applyAccent();
+  try { S.ui.calView = localStorage.getItem('orbit-calview') === 'list' ? 'list' : 'month'; } catch (e) {}
   try { await DB.open(); S.people = await DB.all('people') || []; S.meetings = await DB.all('meetings') || []; }
   catch (e) { $('#view').innerHTML = empty('Storage is unavailable', 'This browser is blocking on-device storage, so nothing can be saved. Open it in Safari outside of Private mode.'); return; }
   await migrate();
