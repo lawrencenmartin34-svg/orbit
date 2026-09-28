@@ -62,7 +62,11 @@ main{max-width:720px;margin:0 auto;padding:0 16px calc(88px + env(safe-area-inse
 .search{display:flex;align-items:center;gap:8px;height:42px;margin:10px 0;padding:0 12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;color:var(--faint)}
 .search svg{width:18px;height:18px;flex:none}
 .search input{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--text);font:16px var(--font)}
-.controls{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.controls{display:flex;align-items:center;gap:6px;margin-bottom:4px;overflow-x:auto;scrollbar-width:none}
+.controls::-webkit-scrollbar{display:none}
+.chip{flex:none}
+.ploc{display:flex;align-items:center;gap:5px;margin-top:6px;font-size:16px;font-weight:550;color:var(--text)}
+.ploc svg{width:17px;height:17px;color:var(--accent);flex:none}
 .chip{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line);color:var(--dim);font-size:13px}
 .chip.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
 .sort{margin-left:auto;background:none;border:0;color:var(--dim);font:13px var(--font);text-align:right}
@@ -138,6 +142,8 @@ a.ext{color:var(--accent)}
 .form textarea{min-height:80px;resize:vertical}
 .form textarea.big{min-height:200px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.two.solo{grid-template-columns:1fr}
+.hide{display:none!important}
 .two .f{min-width:0}
 .seg{display:flex;padding:3px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .seg label{flex:1}
@@ -239,6 +245,7 @@ const I = {
   sliders: sv('<path d="M4 7h9M18 7h2M4 17h3M12 17h8"/><circle cx="15.5" cy="7" r="2.3"/><circle cx="9.5" cy="17" r="2.3"/>'),
   edit: sv('<path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/>'),
   link: sv('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>'),
+  pin: sv('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'),
   check: sv('<path d="M5 12.5l4.5 4.5L19 7.5"/>'),
 };
 
@@ -270,7 +277,9 @@ const upsert = (arr, o) => { const i = arr.findIndex(x => x.id === o.id); i < 0 
 const meetingsOf = id => S.meetings.filter(m => m.personId === id).sort((a, b) => b.when.localeCompare(a.when));
 const lastMet = id => { const n = nowISO(); return meetingsOf(id).find(m => m.when <= n); };
 const nextMet = id => { const n = nowISO(); return meetingsOf(id).filter(m => m.when > n).pop(); };
-const subline = p => [p.role, p.company].filter(Boolean).join(' at ') || p.description || '';
+const isPro = p => p.type === 'professional' || p.type === 'both';
+const roleCo = p => [p.role, isPro(p) && p.company].filter(Boolean).join(' at ');
+const subline = p => [p.location, roleCo(p)].filter(Boolean).join(', ') || p.description || '';
 function followStatus(p){ if (!p.followUp) return null; const d = dayDiff(p.followUp, todayKey()); return d < 0 ? 'overdue' : d === 0 ? 'today' : d <= 7 ? 'week' : 'later'; }
 const initials = n => (n || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase();
 function avatar(p, size){
@@ -332,16 +341,16 @@ const field = (label, name, val, attrs = '') => `<label class="f"><span>${label}
 /* ---------- views ---------- */
 function vPeople(){
   return bar('People', `<a class="iconbtn" href="#/person/new" aria-label="Add person">${I.plus}</a>`)
-  + `<div class="search">${I.search}<input id="q" type="search" placeholder="Search names, firms, notes, tags" value="${esc(S.ui.q)}" autocomplete="off"></div>
-  <div class="controls">${['all','professional','personal'].map(f => `<button class="chip ${S.ui.filter === f ? 'on' : ''}" data-act="filter" data-v="${f}">${f === 'all' ? 'All' : cap(f)}</button>`).join('')}
+  + `<div class="search">${I.search}<input id="q" type="search" placeholder="Search names, places, notes, tags" value="${esc(S.ui.q)}" autocomplete="off"></div>
+  <div class="controls">${['all','professional','personal','both'].map(f => `<button class="chip ${S.ui.filter === f ? 'on' : ''}" data-act="filter" data-v="${f}">${f === 'all' ? 'All' : cap(f)}</button>`).join('')}
   <select class="sort" id="sort" aria-label="Sort">${[['recent','Recent'],['name','A to Z'],['rating','Rating']].map(([v, l]) => `<option value="${v}" ${S.ui.sort === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
   <div id="plist">${peopleList()}</div>`;
 }
 function peopleList(){
   if (!S.people.length) return empty('No one here yet', 'Add the people you meet and keep everything about them in one place.', '#/person/new', 'Add a person');
   const q = S.ui.q.trim().toLowerCase();
-  let list = S.people.filter(p => S.ui.filter === 'all' || p.type === S.ui.filter);
-  if (q) list = list.filter(p => [p.name, p.company, p.role, p.description, p.notes, p.metHow, p.referredBy, (p.tags || []).join(' ')].join(' ').toLowerCase().includes(q));
+  let list = S.people.filter(p => S.ui.filter === 'all' || p.type === S.ui.filter || (p.type === 'both' && S.ui.filter !== 'both'));
+  if (q) list = list.filter(p => [p.name, p.location, p.company, p.role, p.description, p.notes, p.metHow, p.referredBy, (p.tags || []).join(' ')].join(' ').toLowerCase().includes(q));
   const lm = new Map(list.map(p => { const l = lastMet(p.id); return [p.id, l ? l.when : '']; }));
   const recentKey = p => lm.get(p.id) || (p.createdAt || '').slice(0, 16);
   list.sort(S.ui.sort === 'name' ? (a, b) => a.name.localeCompare(b.name)
@@ -374,7 +383,8 @@ function vPerson(id){
   + `<div class="pbody ${ph.length ? 'over' : ''}">
       ${ph.length ? '' : avatar(p, 84)}
       <h2 class="pname">${esc(p.name)}</h2>
-      ${subline(p) ? `<div class="prole">${esc(subline(p))}</div>` : ''}
+      ${p.location ? `<div class="ploc">${I.pin}${esc(p.location)}</div>` : ''}
+      ${roleCo(p) ? `<div class="prole">${esc(roleCo(p))}</div>` : ''}
       <div class="pills"><span class="pill type">${cap(p.type || 'professional')}</span>${(p.tags || []).map(t => `<span class="pill">${esc(t)}</span>`).join('')}</div>
       <div class="ratings"><div><span class="l">Connection</span>${stars(p.rating) || '<span class="faint">Not rated</span>'}</div><div><span class="l">Meetings${rated.length ? `, avg of ${rated.length}` : ''}</span>${avg ? stars(avg) : '<span class="faint">None rated</span>'}</div></div>
       ${fs ? `<div class="follow ${fs}"><div class="main"><b>Follow up ${followWhen}</b>${p.followNote ? `<div class="sub">${esc(p.followNote)}</div>` : ''}</div><button class="btn sm" data-act="snooze" data-id="${id}">+1 week</button><button class="btn sm" data-act="done" data-id="${id}">Done</button></div>` : ''}
@@ -400,8 +410,9 @@ function vPersonForm(id){
   + `<form class="form" data-form="person" data-id="${id || ''}" autocomplete="off">
     ${photoField()}
     ${field('Name', 'name', p.name, 'required')}
-    <div class="f"><span>Type</span><div class="seg">${seg('type', 'professional', 'Professional', p.type)}${seg('type', 'personal', 'Personal', p.type)}</div></div>
-    <div class="two">${field('Role', 'role', p.role, 'placeholder="VP, Acquisitions"')}${field('Company', 'company', p.company)}</div>
+    ${field('Location', 'location', p.location, 'placeholder="City, neighborhood, or where they are based"')}
+    <div class="f"><span>Type</span><div class="seg">${seg('type', 'personal', 'Personal', p.type)}${seg('type', 'professional', 'Professional', p.type)}${seg('type', 'both', 'Both', p.type)}</div></div>
+    <div class="two ${isPro(p) ? '' : 'solo'}" id="rolerow">${field('Role', 'role', p.role, 'placeholder="VP, Acquisitions"')}<label class="f ${isPro(p) ? '' : 'hide'}" id="cofield"><span>Company</span><input class="t" name="company" value="${esc(p.company)}" autocomplete="off"></label></div>
     <label class="f"><span>Description</span><textarea name="description" rows="2" placeholder="Who they are in a line or two">${esc(p.description)}</textarea></label>
     <div class="f"><span>Connection rating</span>${starInput('rating', p.rating)}</div>
     <div class="two">${field('How you met', 'metHow', p.metHow, 'placeholder="Coffee chat, event"')}${field('Introduced by', 'referredBy', p.referredBy)}</div>
@@ -534,7 +545,7 @@ async function savePerson(f){
   const fd = new FormData(f), str = k => (fd.get(k) || '').trim();
   const name = str('name'); if (!name) return toast('Add a name');
   const id = f.dataset.id || uid(), old = P(id) || { createdAt: new Date().toISOString() };
-  const p = { ...old, id, name, type: fd.get('type') || 'professional', role: str('role'), company: str('company'),
+  const p = { ...old, id, name, type: fd.get('type') || 'professional', location: str('location'), role: str('role'), company: str('company'), v: 2,
     description: str('description'), rating: +fd.get('rating') || 0, metHow: str('metHow'), referredBy: str('referredBy'),
     email: str('email'), phone: str('phone'), links: str('links').split('\n').map(s => s.trim()).filter(Boolean),
     tags: str('tags').split(',').map(s => s.trim()).filter(Boolean), followUp: str('followUp'), followNote: str('followNote'),
@@ -583,7 +594,7 @@ async function importData(file){
   await DB.clear('people'); await DB.clear('meetings');
   for (const p of d.people) await DB.put('people', p);
   for (const m of d.meetings) await DB.put('meetings', m);
-  S.people = d.people; S.meetings = d.meetings; toast('Backup restored'); render();
+  S.people = d.people; S.meetings = d.meetings; await migrate(); toast('Backup restored'); render();
 }
 function fillEstimate(){
   const el = $('#est'); if (!el) return;
@@ -630,7 +641,10 @@ document.addEventListener('click', async e => {
 });
 document.addEventListener('change', async e => {
   const t = e.target;
-  if (t.id === 'phin') {
+  if (t.name === 'type' && t.form) {
+    const pro = t.value !== 'personal';
+    $('#cofield').classList.toggle('hide', !pro); $('#rolerow').classList.toggle('solo', !pro);
+  } else if (t.id === 'phin') {
     const files = [...t.files];
     for (const f of files) { try { S.draft.photos.push(await compress(f)); } catch (err) { toast(err.message); } }
     refreshThumbs();
@@ -647,11 +661,23 @@ let tx0 = null;
 $('#lb').addEventListener('touchstart', e => { tx0 = e.touches[0].clientX; }, { passive: true });
 $('#lb').addEventListener('touchend', e => { if (tx0 === null) return; const dx = e.changedTouches[0].clientX - tx0; tx0 = null; if (Math.abs(dx) > 45) { e.preventDefault(); stepLb(dx < 0 ? 1 : -1); } });
 
+// v2: company moved into location for people saved before the location field existed
+async function migrate(){
+  for (const p of S.people) {
+    if ((p.v || 1) < 2) {
+      if (p.company && !p.location) { p.location = p.company; p.company = ''; }
+      p.v = 2;
+      try { await DB.put('people', p); } catch (e) {}
+    }
+  }
+}
+
 /* ---------- start ---------- */
 (async () => {
   applyAccent();
   try { await DB.open(); S.people = await DB.all('people') || []; S.meetings = await DB.all('meetings') || []; }
   catch (e) { $('#view').innerHTML = empty('Storage is unavailable', 'This browser is blocking on-device storage, so nothing can be saved. Open it in Safari outside of Private mode.'); return; }
+  await migrate();
   try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
   render();
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
